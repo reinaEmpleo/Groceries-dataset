@@ -1,66 +1,172 @@
 import altair as alt
 import pandas as pd
 import streamlit as st
-
-# Show the page title and description.
-st.set_page_config(page_title="Movies dataset", page_icon="🎬")
-st.title("🎬 Movies dataset")
-st.write(
-    """
-    This app visualizes data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata).
-    It shows which movie genre performed best at the box office over the years. Just 
-    click on the widgets below to explore!
-    """
-)
+import numpy as np
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import plotly.express as px
+from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import apriori, association_rules
+import seaborn as sns
+import mlxtend
+print(f"mlxtend version: {mlxtend.__version__}")
 
 
-# Load the data from a CSV. We're caching this so it doesn't reload every time the app
-# reruns (e.g. if the user interacts with the widgets).
+# Debug: Check Seaborn version
+print(f"Seaborn Version: {sns.__version__}")
+
+# Set page configuration
+st.set_page_config(page_title="Grocery Dataset Using Apriori Algorithm", page_icon="🛒")
+st.title("🛒 Grocery Dataset Using Apriori Algorithm")
+
+# Load the data with caching
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/movies_genres_summary.csv")
-    return df
-
+    try:
+        df = pd.read_csv("data/Groceries_dataset.csv", parse_dates=['Date'], dayfirst=True)
+        return df
+    except FileNotFoundError:
+        st.error("Error: Dataset file not found.")
+        return pd.DataFrame()
 
 df = load_data()
 
-# Show a multiselect widget with the genres using `st.multiselect`.
-genres = st.multiselect(
-    "Genres",
-    df.genre.unique(),
-    ["Action", "Adventure", "Biography", "Comedy", "Drama", "Horror"],
-)
+# Ensure the DataFrame isn't empty
+if df.empty:
+    st.stop()
 
-# Show a slider widget with the years using `st.slider`.
-years = st.slider("Years", 1986, 2006, (2000, 2016))
+# Data Preprocessing
+groceriesDS_clean = df.copy()
+groceriesDS_clean.set_index('Date', inplace=True)
 
-# Filter the dataframe based on the widget input and reshape it.
-df_filtered = df[(df["genre"].isin(genres)) & (df["year"].between(years[0], years[1]))]
-df_reshaped = df_filtered.pivot_table(
-    index="year", columns="genre", values="gross", aggfunc="sum", fill_value=0
-)
-df_reshaped = df_reshaped.sort_values(by="year", ascending=False)
+# Create Tabs
+tab1, tab2, tab3 = st.tabs(["📊 Data Visualization", "🔍 Apriori Calculation", "📈 Association Rules"])
 
+# **Tab 1: Data Visualization**
+with tab1:
+    st.subheader("📊 Summary Statistics")
+    total_items = len(groceriesDS_clean)
+    total_days = len(np.unique(groceriesDS_clean.index.date))
+    total_months = len(np.unique(groceriesDS_clean.index.month))
+    average_items = total_items / total_days
+    unique_items = groceriesDS_clean['itemDescription'].nunique()
 
-# Display the data as a table using `st.dataframe`.
-st.dataframe(
-    df_reshaped,
-    use_container_width=True,
-    column_config={"year": st.column_config.TextColumn("Year")},
-)
+    st.write(f"**Unique Items Sold:** {unique_items}")
+    st.write(f"**Total Items Sold:** {total_items}")
+    st.write(f"**Total Sales Days:** {total_days}")
+    st.write(f"**Total Sales Months:** {total_months}")
+    st.write(f"**Average Daily Sales:** {average_items:.2f}")
 
-# Display the data as an Altair chart using `st.altair_chart`.
-df_chart = pd.melt(
-    df_reshaped.reset_index(), id_vars="year", var_name="genre", value_name="gross"
-)
-chart = (
-    alt.Chart(df_chart)
-    .mark_line()
-    .encode(
-        x=alt.X("year:N", title="Year"),
-        y=alt.Y("gross:Q", title="Gross earnings ($)"),
-        color="genre:N",
-    )
-    .properties(height=320)
-)
-st.altair_chart(chart, use_container_width=True)
+    # Visualization: Total Items Sold by Date
+    st.subheader("📅 Items Sold by Date")
+    fig, ax = plt.subplots(figsize=(12, 5))
+    groceriesDS_clean.resample("D")['itemDescription'].count().plot(ax=ax, grid=True)
+    ax.set_title("Total Number of Items Sold by Date")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Total Number of Items Sold")
+    st.pyplot(fig)
+
+    # Visualization: Total Items Sold by Month
+    st.subheader("📅 Items Sold by Month")
+    fig, ax = plt.subplots(figsize=(12, 5))
+    groceriesDS_clean.resample("ME")['itemDescription'].count().plot(ax=ax, grid=True)
+    ax.set_title("Total Number of Items Sold by Month")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Total Number of Items Sold")
+    st.pyplot(fig)
+
+    # Word Cloud Visualization
+    st.subheader("☁️ Word Cloud of Items")
+    wordcloud = WordCloud(
+        background_color="white", width=1200, height=1200, max_words=121
+    ).generate(' '.join(groceriesDS_clean['itemDescription'].tolist()))
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(wordcloud, interpolation="bilinear")
+    ax.axis("off")
+    ax.set_title("Items Word Cloud", fontsize=20)
+    st.pyplot(fig)
+
+# **Apriori Calculation Section**
+transactions = [group['itemDescription'].tolist() for _, group in groceriesDS_clean.groupby(['Member_number', 'Date'])]
+
+# Check if transactions are empty
+if len(transactions) == 0:
+    st.error("No transactions found. Please check the dataset.")
+    st.stop()
+
+# Apply Transaction Encoding
+te = TransactionEncoder()
+te_ary = te.fit(transactions).transform(transactions)
+transaction_df = pd.DataFrame(te_ary, columns=te.columns_)
+
+# Generate Frequent Itemsets
+freq_items = pd.DataFrame()  # Initialize
+if not transaction_df.empty:
+    try:
+        freq_items = apriori(transaction_df, min_support=0.001, use_colnames=True)
+        freq_items['itemsets'] = freq_items['itemsets'].apply(lambda x: ', '.join(list(x)))
+    except Exception as e:
+        st.error(f"Error generating frequent itemsets: {str(e)}")
+
+# **Tab 2: Apriori Calculation**
+with tab2:
+    st.subheader("🔍 Frequent Itemsets Found")
+    if not freq_items.empty:
+        st.dataframe(freq_items.head(10))
+    else:
+        st.error("No frequent itemsets found. Try adjusting the minimum support value.")
+
+# **Tab 3: Association Rules**
+with tab3:
+    st.subheader("📈 Association Rules")
+
+    # **Tab 3: Association Rules**
+with tab3:
+    st.subheader("📈 Association Rules")
+    if not freq_items.empty:
+        try:
+            # Generate Association Rules
+            rules = association_rules(freq_items, metric="confidence", min_threshold=0.001)
+
+            # Display Top Rules
+            st.write("**Top 10 Association Rules:**")
+            st.dataframe(rules.head(10))
+
+            # Scatter Plot: Support vs Confidence
+            st.subheader("📊 Support vs Confidence")
+            fig = px.scatter(rules, x='support', y='confidence')
+            fig.update_layout(
+                xaxis_title="Support",
+                yaxis_title="Confidence",
+                title="Support vs Confidence"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Scatter Plot: Support vs Lift
+            st.subheader("📊 Support vs Lift")
+            fig = px.scatter(rules, x='support', y='lift')
+            fig.update_layout(
+                xaxis_title="Support",
+                yaxis_title="Lift",
+                title="Support vs Lift"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Lift vs Confidence with Regression Line
+            st.subheader("📈 Lift vs Confidence (Regression)")
+            fit = np.polyfit(rules['lift'], rules['confidence'], 1)
+            fit_fn = np.poly1d(fit)
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(rules['lift'], rules['confidence'], 'yo', label="Data Points")
+            plt.plot(rules['lift'], fit_fn(rules['lift']), '-', label="Fit Line")
+            plt.xlabel('Lift')
+            plt.ylabel('Confidence')
+            plt.title('Lift vs Confidence')
+            plt.legend()
+            st.pyplot(plt)
+
+        except Exception as e:
+            st.error(f"Error generating association rules: {str(e)}")
+    else:
+        st.error("No frequent itemsets found. Try adjusting the minimum support value.")

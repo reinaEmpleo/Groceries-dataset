@@ -58,15 +58,6 @@ with tab1:
     st.write(f"**Total Sales Days:** {total_days}")
     st.write(f"**Total Sales Months:** {total_months}")
     st.write(f"**Average Daily Sales:** {average_items:.2f}")
-
-    # Visualization: Total Items Sold by Date
-    # st.subheader("📅 Items Sold by Date")
-    # fig, ax = plt.subplots(figsize=(12, 5))
-    # groceriesDS_clean.resample("D")['itemDescription'].count().plot(ax=ax, grid=True)
-    # ax.set_title("Total Number of Items Sold by Date")
-    # ax.set_xlabel("Date")
-    # ax.set_ylabel("Total Number of Items Sold")
-    # st.pyplot(fig)
     
     st.divider()
     st.subheader("📅 Items Sold by Date (Interactive)")
@@ -105,26 +96,12 @@ with tab1:
     ax.set_xlabel("Date")
     ax.set_ylabel("Total Number of Items Sold")
     st.pyplot(fig)
-
-    
-
     st.divider()
-    # Word Cloud Visualization
-    # st.subheader("☁️ Word Cloud of Items")
-    # wordcloud = WordCloud(
-    #     background_color="white", width=1200, height=1200, max_words=121
-    # ).generate(' '.join(groceriesDS_clean['itemDescription'].tolist()))
-    # fig, ax = plt.subplots(figsize=(10, 10))
-    # ax.imshow(wordcloud, interpolation="bilinear")
-    # ax.axis("off")
-    # ax.set_title("Items Word Cloud", fontsize=20)
-    # st.pyplot(fig)
 
     wordcloud = WordCloud(
     background_color="white", width=1500, height=800, max_words=121
 ).generate(' '.join(groceriesDS_clean['itemDescription'].tolist()))
-
-# Create a Plotly figure using the wordcloud image
+    # Create a Plotly figure using the wordcloud image
 wordcloud_img = wordcloud.to_image()
 fig = px.imshow(wordcloud_img)
 
@@ -149,7 +126,8 @@ st.subheader("☁️ Interactive Word Cloud of Items")
 st.plotly_chart(fig)
 
 # **Tab 2: Apriori Calculation**
-transactions = [group['itemDescription'].tolist() for _, group in groceriesDS_clean.groupby(['Member_number', 'Date'])]
+with tab2:
+    transactions = [group['itemDescription'].tolist() for _, group in groceriesDS_clean.groupby(['Member_number', 'Date'])]
 
 if not transactions:
     st.error("No transactions found. Please check the dataset.")

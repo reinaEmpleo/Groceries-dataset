@@ -15,8 +15,8 @@ print(f"mlxtend version: {mlxtend.__version__}")
 print(f"Seaborn Version: {sns.__version__}")
 
 # Streamlit Config
-st.set_page_config(page_title="Grocery Dataset Using Apriori Algorithm", page_icon="🛒")
-st.title("🛒 Grocery Dataset Using Apriori Algorithm")
+st.set_page_config(page_title="DataHarvest", page_icon="🛒")
+st.markdown("<h1 style='text-align: center;'>🛒 DataHarvest Grocery Dataset Using Apriori Algorithm 🛒</h1>", unsafe_allow_html=True)
 
 # Load Data
 @st.cache_resource
@@ -53,7 +53,7 @@ with tab1:
                 The dataset captures transactional data from a grocery store, where each row corresponds 
                 to an individual purchase order. To uncover meaningful insights, we applied the Apriori algorithm and K-means clustering.""")
         
-    st.markdown('#### **Why did we choose Apriori Algorithm and K-means Clustering?**')
+    st.markdown('#### 🤔 **Why did we choose Apriori Algorithm and K-means Clustering?**')
     st.markdown('##### **Apriori Algorithm**')
     st.markdown('**Purpose:** The Apriori algorithm is used for frequent itemset mining and learning association rules. It identifies frequently purchased items and calculates metrics like support, confidence, and lift to derive patterns in customer behavior.')
     st.markdown("""
@@ -68,6 +68,7 @@ with tab1:
             -  Enhances the effectiveness of Apriori by applying it to specific clusters, uncovering nuanced patterns.
             """)
         
+    st.divider()
     st.markdown('### **Research Questions**')
     st.markdown('(We can answer these questions after we get the results from the selected techniques.)')
     st.markdown("""
@@ -112,13 +113,33 @@ with tab2:
     """)
 
     # Visualization: Items Sold by Date
+    st.divider()
     st.subheader("📅 Items Sold by Date")
-    fig, ax = plt.subplots(figsize=(12, 5))
-    groceriesDS_clean.resample("D")['itemDescription'].count().plot(ax=ax, grid=True)
-    ax.set_title("Total Number of Items Sold by Date")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Total Number of Items Sold")
-    st.pyplot(fig)
+    # Resample the data to daily counts
+    daily_counts = groceriesDS_clean.resample("D")['itemDescription'].count().reset_index()
+    
+    # Create an interactive Altair line plot
+    chart = alt.Chart(daily_counts).mark_line(
+    color='darkblue',  # Set line color to dark blue
+    interpolate='basis',  # Make line smooth with rounded ends
+).encode(
+    x=alt.X('Date:T', title='Date', axis=alt.Axis(titleColor='black', labelColor='black')),  # Set axis labels and title to black
+    y=alt.Y('itemDescription:Q', title='Total Number of Items Sold', axis=alt.Axis(titleColor='black', labelColor='black')),  # Set axis labels and title to black
+    tooltip=['Date:T', 'itemDescription:Q']
+).properties(
+    title="Total Number of Items Sold by Date",
+    width=700,
+    height=400,
+    background='rgba(255, 255, 255, 0.9)',  # Set background transparency to 50%
+).configure_title(
+    fontSize=20,
+    font='Serif',
+    color='black',  # Set title color to black
+    anchor='middle',  # Center the title
+).interactive() # Enable zooming and panning
+    
+    # Display the chart
+    st.altair_chart(chart)
 
     st.markdown("""
     This line chart visualizes the **daily fluctuations in the number of items sold** over a one-year period, spanning from **January 2014 to December 2015**. 
@@ -132,6 +153,7 @@ with tab2:
     - **Overall Trend:** While there are fluctuations, the overall trend suggests a relatively consistent level of sales throughout the year.
     """)
 
+    st.divider()
     # Visualization: Items Sold by Month
     st.subheader("📅 Items Sold by Month")
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -151,18 +173,27 @@ with tab2:
     - **Overall Trend:** While there are fluctuations, the overall trend suggests a slight upward trajectory in sales over the two-year period.
     """)
 
-
+    st.divider()
     # Word Cloud Visualization
-    st.subheader("☁️ Word Cloud of Items")
     wordcloud = WordCloud(
-        background_color="white", width=1200, height=1200, max_words=150
+    background_color="white", width=1500, height=800, max_words=121
     ).generate(' '.join(groceriesDS_clean['itemDescription'].tolist()))
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.imshow(wordcloud, interpolation="bilinear")
-    ax.axis("off")
-    ax.set_title("Items Word Cloud", fontsize=20)
-    st.pyplot(fig)
+    # Create a Plotly figure using the wordcloud image
+    wordcloud_img = wordcloud.to_image()
+    fig = px.imshow(wordcloud_img)
 
+    # Make the image interactive by disabling axes
+    fig.update_layout(
+    title="Items Word Cloud",
+    xaxis_visible=False,
+    yaxis_visible=False,
+    autosize=True,
+    width=1000,  # Adjust width to make it larger
+    height=670, 
+)
+    # Show the interactive word cloud in the streamlit app
+    st.subheader("☁️ Interactive Word Cloud of Items")
+    st.plotly_chart(fig)
     st.markdown("Dominant Product Categories")
     st.markdown("""
     - **Dairy Products🥛🧀:** Words like *milk*, *cheese*, *yogurt*, and *butter* are prominently displayed, indicating a strong emphasis on dairy products.

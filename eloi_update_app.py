@@ -22,7 +22,7 @@ st.title("🛒 Grocery Dataset Using Apriori Algorithm")
 @st.cache_resource
 def load_data():
     try:
-        df = pd.read_csv("Groceries_dataset.csv", parse_dates=['Date'], dayfirst=True)
+        df = pd.read_csv("data/Groceries_dataset.csv", parse_dates=['Date'], dayfirst=True)
         return df
     except FileNotFoundError:
         st.error("Error: Dataset file not found.")

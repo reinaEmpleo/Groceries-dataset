@@ -1,2 +1,9 @@
+altair
+pandas
 streamlit
+numpy
 matplotlib
+wordcloud
+plotly
+seaborn
+mlxtend

@@ -6,4 +6,5 @@ matplotlib
 wordcloud
 plotly
 seaborn
-mlxtend
+mlxtend==0.17.0
+
